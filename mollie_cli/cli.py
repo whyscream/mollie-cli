@@ -162,7 +162,6 @@ def token(ctx, access_token, testmode):
 @click.option(
     "--client-id",
     "-i",
-    required=True,
     type=str,
     help="The Client ID of your Mollie app",
     envvar="MOLLIE_CLIENT_ID",
@@ -170,7 +169,6 @@ def token(ctx, access_token, testmode):
 @click.option(
     "--client-secret",
     "-s",
-    required=True,
     type=str,
     help="The Client Secret of your Mollie app",
     envvar="MOLLIE_CLIENT_SECRET",
@@ -178,7 +176,6 @@ def token(ctx, access_token, testmode):
 @click.option(
     "--redirect-uri",
     "-u",
-    required=True,
     type=str,
     help="The Redirect URI of your Mollie app",
 )
@@ -199,8 +196,9 @@ def oauth(ctx, client_id, client_secret, redirect_uri, testmode):
         redirect_uri,
         testmode,
     )
-    # start the authorization flow
-    client.oauth_authorize()
+    with handle_client_exceptions():
+        # start the authorization flow
+        client.oauth_authorize()
 
 
 @click.command()

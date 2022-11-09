@@ -165,6 +165,12 @@ class OAuthAPIClient(BaseAPIClient):
             self.set_token,
         )
         if not is_authorized:
+            # If we have no valid OAuth token, we need to (re-)authorize
+            if not (self._redirect_uri and self._client_id and self._client_secret):
+                raise ClientError(
+                    "OAuth authorization required, make sure to provide "
+                    "Client ID, Client Secret and Redirect URI"
+                )
             self.perform_authorization(authorization_url)
 
     def perform_authorization(self, authorization_url):
