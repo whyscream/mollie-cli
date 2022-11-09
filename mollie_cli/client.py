@@ -1,5 +1,13 @@
+import json
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+
+import click
 from mollie.api.client import Client as MollieClient
 from mollie.api.error import Error as NativeMollieError
+from oauthlib.oauth2.rfc6749.errors import OAuth2Error
 
 
 class APIError(Exception):
@@ -14,32 +22,7 @@ class ClientError(Exception):
     pass
 
 
-class APIClient:
-    def __init__(self, key, testmode):
-        self._client = self.configure_client(key)
-        self._testmode = testmode
-
-    def use_testmode(self):
-        return self._uses_access_token and self._testmode
-
-    def get_params(self, **params):
-        if self.use_testmode():
-            params.update({"testmode": "true"})
-        return params
-
-    def configure_client(self, key):
-        client = MollieClient()
-        if key.startswith(("test_", "live_")):
-            client.set_api_key(key)
-            self._uses_access_token = True
-        elif key.startswith("access_"):
-            client.set_access_token(key)
-            self._uses_access_token = True
-        else:
-            raise RuntimeError("We don't support this type of key")
-
-        return client
-
+class BaseAPIClient:
     def list(self, resource_name, limit):
         """List resources by"""
         map_ = self.get_supported_resources_map()
@@ -112,3 +95,164 @@ class APIClient:
                 pass
 
         return resources
+
+
+class APIClient(BaseAPIClient):
+    def __init__(self, key, testmode=False):
+        self._testmode = testmode
+        self._client = MollieClient()
+
+        if key.startswith(("test_", "live_")):
+            self._client.set_api_key(key)
+
+        elif key.startswith("access_"):
+            self._client.set_access_token(key)
+
+    def get_params(self, **params):
+        if self._testmode:
+            params.update({"testmode": "true"})
+        return params
+
+
+class OAuthAPIClient(BaseAPIClient):
+    TOKEN_PATH = Path.home() / ".mollie-cli-token.json"
+
+    SCOPE = [
+        "refunds.read",
+        "refunds.write",
+        "onboarding.read",
+        "customers.read",
+        "customers.write",
+        "shipments.read",
+        "mandates.read",
+        "invoices.read",
+        "shipments.write",
+        "profiles.write",
+        "orders.write",
+        "profiles.read",
+        "payments.write",
+        "organizations.write",
+        "subscriptions.write",
+        "subscriptions.read",
+        "mandates.write",
+        "orders.read",
+        "organizations.read",
+        "settlements.read",
+        "onboarding.write",
+        "payments.read",
+    ]
+
+    def __init__(self, client_id, client_secret, redirect_uri, testmode=False):
+        self._testmode = testmode
+        self._client_id = client_id
+        self._client_secret = client_secret
+        self._redirect_uri = redirect_uri
+        self._client = MollieClient()
+
+    def oauth_authorize(self):
+        token = self.get_token()
+        is_authorized, authorization_url = self._client.setup_oauth(
+            self._client_id,
+            self._client_secret,
+            self._redirect_uri,
+            self.SCOPE,
+            token,
+            self.set_token,
+        )
+        if not is_authorized:
+            self.perform_authorization(authorization_url)
+
+    def perform_authorization(self, authorization_url):
+        # Start a http server in the background
+        click.echo("Starting HTTP server")
+
+        server = OAuthHTTPServer(
+            ("localhost", 5000), OAuthResponseHandler, apiclient=self
+        )
+
+        thread = threading.Thread(target=server.serve_forever)
+        thread.daemon = True
+        thread.start()
+        click.echo("HTTP server started")
+
+        confirm_text = f"""
+            This CLI application is not authorized yet to access your Mollie
+            data. Please visit the following URL to continue. Continue only
+            when you have completed the Authorization flow in your browser.
+
+            {authorization_url}
+        """
+        click.echo(confirm_text)
+
+        if click.confirm("Open the URL in a brower for you?", default=False):
+            click.launch(authorization_url)
+
+        time.sleep(10)
+        click.confirm("Did you complete the flow?", abort=True)
+
+    def handle_authorization_response(self, redirect_url):
+        self._client.setup_oauth_authorization_response(redirect_url)
+
+    @classmethod
+    def get_token(cls):
+        if cls.TOKEN_PATH.exists():
+            return json.loads(cls.TOKEN_PATH.read_text())
+
+    @classmethod
+    def set_token(cls, token):
+        cls.TOKEN_PATH.write_text(json.dumps(token))
+
+    def get_params(self, **params):
+        if self._testmode:
+            params.update({"testmode": "true"})
+        return params
+
+
+class OAuthHTTPServer(HTTPServer):
+    """HTTP server that accepts an instance of the OAuth API Client."""
+
+    def __init__(
+        self,
+        server_address,
+        RequestHandlerClass,
+        bind_and_activate=True,
+        apiclient=None,
+    ):
+        self.apiclient = apiclient
+        super().__init__(
+            server_address,
+            RequestHandlerClass,
+            bind_and_activate,
+        )
+
+
+class OAuthResponseHandler(BaseHTTPRequestHandler):
+    """HTTP request handler that processes the OAuth authorization response."""
+
+    def do_GET(self):
+        # Reconstruct the request url
+        host = self.server.server_name
+        port = self.server.server_port
+        path = self.path
+        # we mock https here, since it is required for OAuth2.0, but we use
+        # the external ngrok server to provide it for us.
+        request_uri = f"https://{host}:{port}{path}"
+        try:
+            self.server.apiclient.handle_authorization_response(request_uri)
+        except OAuth2Error as exc:
+            payload = f"""
+            <h1>OAuth error: {exc}</h1>
+            <p>
+                If you're here to complete an Oauth authorization flow,
+                this is bad news.
+            </p>
+            """
+        else:
+            payload = """
+            <h1>OAuth authorization was succesful!</h1>
+            """
+
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(payload.encode())

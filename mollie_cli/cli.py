@@ -4,18 +4,22 @@ from contextlib import contextmanager
 import click
 from tabulate import tabulate
 
-from .client import APIClient, APIError, ClientError
+from .client import APIClient, APIError, ClientError, OAuthAPIClient
 
 RESOURCES_LIST_PROPERTIES = {
     "_default_": {"ID": "id"},
-    "payments": {
+    "clients": {
+        "ID": "id",
+        "Organization created at": "organisation_created_at",
+    },
+    "customers": {"ID": "id", "E-mail": "email"},
+    "orders": {
         "ID": "id",
         "Amount": "amount",
         "Status": "status",
         "Paid at": "paid_at",
     },
-    "customers": {"ID": "id", "E-mail": "email"},
-    "orders": {
+    "payments": {
         "ID": "id",
         "Amount": "amount",
         "Status": "status",
@@ -27,16 +31,31 @@ RESOURCES_LIST_PROPERTIES = {
         "E-mail": "email",
         "Status": "status",
     },
+    "refunds": {
+        "ID": "id",
+        "Amount": "amount",
+        "Status": "status",
+        "Description": "description",
+    },
 }
 
 
-def validate_key(ctx, param, value):
-    prefixes = ("test_", "live_", "access_")
+def validate_api_key(ctx, param, value):
+    prefixes = ("test_", "live_")
     if value.startswith(prefixes):
         return value
 
     raise click.BadParameter(
-        f"The key should start with one of: {', '.join(prefixes)}",
+        f"The API key should start with one of: {', '.join(prefixes)}",
+    )
+
+
+def validate_token(ctx, param, value):
+    if value.startswith("access_"):
+        return value
+
+    raise click.BadParameter(
+        "The access token should start with: access_",
     )
 
 
@@ -94,13 +113,74 @@ def handle_client_exceptions():
 
 @click.group()
 @click.version_option()
+@click.pass_context
+def cli(ctx):
+    ctx.ensure_object(dict)
+
+
+@cli.group()
 @click.option(
-    "--key",
+    "--api-key",
     "-k",
     required=True,
     type=str,
-    help="The Mollie API key or access token to use for authentication",
-    callback=validate_key,
+    help="The Mollie API key to use for authentication",
+    callback=validate_api_key,
+    envvar="MOLLIE_API_KEY",
+)
+@click.pass_context
+def apikey(ctx, key):
+    """Connect to Mollie using an api key or access token"""
+    ctx.obj["client"] = APIClient(key)
+
+
+@cli.group()
+@click.option(
+    "--access-token",
+    "-a",
+    required=True,
+    type=str,
+    help="The Mollie access token to use for authentication",
+    callback=validate_token,
+    envvar="MOLLIE_ACCESS_TOKEN",
+)
+@click.option(
+    "--testmode",
+    "-t",
+    flag_value=True,
+    default=False,
+    help="Enable testmode",
+    envvar="MOLLIE_TESTMODE",
+)
+@click.pass_context
+def token(ctx, access_token, testmode):
+    """Connect to Mollie using an api key or access token"""
+    ctx.obj["client"] = APIClient(access_token, testmode)
+
+
+@cli.group()
+@click.option(
+    "--client-id",
+    "-i",
+    required=True,
+    type=str,
+    help="The Client ID of your Mollie app",
+    envvar="MOLLIE_CLIENT_ID",
+)
+@click.option(
+    "--client-secret",
+    "-s",
+    required=True,
+    type=str,
+    help="The Client Secret of your Mollie app",
+    envvar="MOLLIE_CLIENT_SECRET",
+)
+@click.option(
+    "--redirect-uri",
+    "-u",
+    required=True,
+    type=str,
+    help="The Redirect URI of your Mollie app",
 )
 @click.option(
     "--testmode",
@@ -108,15 +188,19 @@ def handle_client_exceptions():
     flag_value=True,
     default=False,
     help="Enable testmode when using an access token",
+    envvar="MOLLIE_TESTMODE",
 )
 @click.pass_context
-def cli(ctx, key, testmode):
-    if key.startswith("access_") and testmode:
-        click.echo("Enabling testmode")
-
-    # Setup the APIClient and save it to the context
-    ctx.ensure_object(dict)
-    ctx.obj["client"] = APIClient(key, testmode)
+def oauth(ctx, client_id, client_secret, redirect_uri, testmode):
+    """Connect to Mollie using OAuth2.0"""
+    client = ctx.obj["client"] = OAuthAPIClient(
+        client_id,
+        client_secret,
+        redirect_uri,
+        testmode,
+    )
+    # start the authorization flow
+    client.oauth_authorize()
 
 
 @click.command()
@@ -132,7 +216,12 @@ def get(ctx, resource_id):
     format_result_item(result)
 
 
-@click.command()
+apikey.add_command(get)
+token.add_command(get)
+oauth.add_command(get)
+
+
+@click.command("list")
 @click.option(
     "--limit",
     "-l",
@@ -142,7 +231,7 @@ def get(ctx, resource_id):
 )
 @click.argument("resource")
 @click.pass_context
-def list_(ctx, resource, limit):
+def list_(ctx, limit, resource):
     """List items by resource name"""
     client = ctx.obj["client"]
 
@@ -152,8 +241,9 @@ def list_(ctx, resource, limit):
     format_result_list(result, resource_name)
 
 
-cli.add_command(get)
-cli.add_command(list_, "list")
+apikey.add_command(list_)
+token.add_command(list_)
+oauth.add_command(list_)
 
 
 def main():
