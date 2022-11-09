@@ -10,7 +10,7 @@ requires-python = ">=3.7"
 license = "MIT"
 keywords = []
 authors = [
-  { name = "U.N. Owen", email = "void@some.where" },
+  { name = "Tom Hendrikx", email = "tom@whyscream.net" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -23,13 +23,18 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+  "click>=8.1.3,<9",
+]
 dynamic = ["version"]
 
+[project.scripts]
+mollie-cli = "mollie_cli.cli:main"
+
 [project.urls]
-Documentation = "https://github.com/unknown/mollie-cli#readme"
-Issues = "https://github.com/unknown/mollie-cli/issues"
-Source = "https://github.com/unknown/mollie-cli"
+Documentation = "https://github.com/whyscream/mollie-cli#readme"
+Issues = "https://github.com/whyscream/mollie-cli/issues"
+Source = "https://github.com/whyscream/mollie-cli"
 
 [tool.hatch.version]
 path = "mollie_cli/__about__.py"
