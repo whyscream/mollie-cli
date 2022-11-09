@@ -2,8 +2,32 @@ import sys
 from contextlib import contextmanager
 
 import click
+from tabulate import tabulate
 
 from .client import APIClient, APIError, ClientError
+
+RESOURCES_LIST_PROPERTIES = {
+    "_default_": {"ID": "id"},
+    "payments": {
+        "ID": "id",
+        "Amount": "amount",
+        "Status": "status",
+        "Paid at": "paid_at",
+    },
+    "customers": {"ID": "id", "E-mail": "email"},
+    "orders": {
+        "ID": "id",
+        "Amount": "amount",
+        "Status": "status",
+        "Paid at": "paid_at",
+    },
+    "profiles": {
+        "ID": "id",
+        "Name": "name",
+        "E-mail": "email",
+        "Status": "status",
+    },
+}
 
 
 def validate_key(ctx, param, value):
@@ -16,9 +40,37 @@ def validate_key(ctx, param, value):
     )
 
 
-def format_result(result):
-    # TODO use tabulate to format the data awesome
-    click.echo(result)
+def format_result_list(result, resource_name):
+    properties = RESOURCES_LIST_PROPERTIES.get(resource_name)
+    if not properties:
+        properties = RESOURCES_LIST_PROPERTIES.get("_default_")
+
+    header = properties.keys()
+    table = [header]
+
+    for item in result:
+        row = [getattr(item, p) for p in properties.values()]
+        table.append(row)
+
+    tabulated = tabulate(table, tablefmt="fancy_grid", headers="firstrow")
+    click.echo(f"\nList of {resource_name}:\n")
+    click.echo(tabulated)
+
+
+def format_result_item(result):
+    table = [["Parameter", "Value"]]
+    for key in dir(result):
+        if key.startswith("_") or key.isupper():
+            continue
+        value = getattr(result, key)
+        if not isinstance(value, (str, int, bool, dict)) and value is not None:
+            continue
+
+        table.append([key, value])
+
+    tabulated = tabulate(table, tablefmt="fancy_grid", headers="firstrow")
+    click.echo(f"\nProperties of {result.resource} with id {result.id}:\n")
+    click.echo(tabulated)
 
 
 @contextmanager
@@ -75,9 +127,9 @@ def get(ctx, resource_id):
     client = ctx.obj["client"]
 
     with handle_client_exceptions():
-        result = client.get(resource_id)
+        result, _ = client.get(resource_id)
 
-    format_result(result)
+    format_result_item(result)
 
 
 @click.command()
@@ -95,9 +147,9 @@ def list_(ctx, resource, limit):
     client = ctx.obj["client"]
 
     with handle_client_exceptions():
-        result = client.list(resource, limit)
+        result, resource_name = client.list(resource, limit)
 
-    format_result(result)
+    format_result_list(result, resource_name)
 
 
 cli.add_command(get)

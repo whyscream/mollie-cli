@@ -63,9 +63,15 @@ class APIClient:
         resource = getattr(self._client, resource_name)
         params = self.get_params(limit=limit)
         try:
-            return resource.list(**params)
+            result = resource.list(**params)
         except NativeMollieError as exc:
             raise APIError(exc) from exc
+        except AttributeError:
+            raise ClientError(
+                f"Resource '{resource_name}' doesn't support listing"
+            )  # noqa: E501
+
+        return result, resource_name
 
     def get(self, resource_id):
         map_ = self.get_supported_resources_map()
@@ -74,6 +80,7 @@ class APIClient:
         for resource_name, prefix in map_.items():
             if resource_id.startswith(prefix):
                 resource = getattr(self._client, resource_name)
+                break
 
         if not resource:
             raise ClientError(
@@ -82,9 +89,15 @@ class APIClient:
 
         params = self.get_params()
         try:
-            return resource.get(resource_id, **params)
+            result = resource.get(resource_id, **params)
         except NativeMollieError as exc:
             raise APIError(exc) from exc
+        except AttributeError:
+            raise ClientError(
+                f"Resource '{resource_name}' doesn't support getting single objects",  # noqa: E501
+            )
+
+        return result, resource_name
 
     def get_supported_resources_map(self):
         """Generate a map of resource names and prefixes."""
