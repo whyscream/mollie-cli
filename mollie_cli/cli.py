@@ -204,14 +204,21 @@ def oauth(ctx, client_id, client_secret, redirect_uri, testmode):
 
 
 @click.command()
+@click.option(
+    "--hint-resource",
+    "-r",
+    "hint",
+    type=str,
+    help="Give a hint on the resource type",
+)
 @click.argument("resource_id")
 @click.pass_context
-def get(ctx, resource_id):
+def get(ctx, resource_id, hint):
     """Retrieve a single item by resource ID"""
     client = ctx.obj["client"]
 
     with handle_client_exceptions():
-        result, _ = client.get(resource_id)
+        result, _ = client.get(resource_id, hint)
 
     format_result_item(result)
 

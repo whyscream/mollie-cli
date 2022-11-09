@@ -23,25 +23,28 @@ class ClientError(Exception):
 
 
 class BaseAPIClient:
-    def list(self, resource_name, limit):
-        """List resources by"""
+    def find_resource_name(self, hint):
+        """Try to find a known resource by a partial name"""
         map_ = self.get_supported_resources_map()
 
-        if resource_name in map_.keys():
+        if hint in map_.keys():
             # Found a direct match
-            pass
+            return hint
         else:
             # Try to match a substring
-            resources = [x for x in map_.keys() if x.startswith(resource_name)]
+            resources = [name for name in map_.keys() if hint in name]
             if not resources:
-                raise ClientError(f"No resource with name '{resource_name}'")
+                raise ClientError(f"No resource found for name '{hint}'")
             elif len(resources) > 1:
                 raise ClientError(
-                    "Incomplete resource name matches multiple resources: "
-                    f"{', '.join(resources)}",
+                    f"Hint matches multiple resources: {', '.join(resources)}",
                 )
             else:
-                resource_name = resources[0]
+                return resources[0]
+
+    def list(self, resource_name, limit):
+        """List resources by"""
+        resource_name = self.find_resource_name(resource_name)
 
         resource = getattr(self._client, resource_name)
         params = self.get_params(limit=limit)
@@ -56,15 +59,17 @@ class BaseAPIClient:
 
         return result, resource_name
 
-    def get(self, resource_id):
-        map_ = self.get_supported_resources_map()
+    def get(self, resource_id, hint):
+        if hint:
+            resource_name = self.find_resource_name(hint)
+        else:
+            map_ = self.get_supported_resources_map()
+            resource = None
+            for resource_name, prefix in map_.items():
+                if resource_id.startswith(prefix):
+                    break
 
-        resource = None
-        for resource_name, prefix in map_.items():
-            if resource_id.startswith(prefix):
-                resource = getattr(self._client, resource_name)
-                break
-
+        resource = getattr(self._client, resource_name)
         if not resource:
             raise ClientError(
                 f"Cannot find a resource for id '{resource_id}'",
