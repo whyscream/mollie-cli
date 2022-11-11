@@ -120,7 +120,7 @@ def cli(ctx):
 
 @cli.group()
 @click.option(
-    "--api-key",
+    "--key",
     "-k",
     required=True,
     type=str,
@@ -130,7 +130,7 @@ def cli(ctx):
 )
 @click.pass_context
 def apikey(ctx, key):
-    """Connect to Mollie using an api key or access token"""
+    """Connect to Mollie using an api key"""
     ctx.obj["client"] = APIClient(key)
 
 
@@ -154,7 +154,7 @@ def apikey(ctx, key):
 )
 @click.pass_context
 def token(ctx, access_token, testmode):
-    """Connect to Mollie using an api key or access token"""
+    """Connect to Mollie using an access token"""
     ctx.obj["client"] = APIClient(access_token, testmode)
 
 
