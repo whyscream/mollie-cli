@@ -77,7 +77,7 @@ def format_result_list(result, resource_name):
 
 
 def format_result_item(result):
-    table = [["Parameter", "Value"]]
+    table = [["Property", "Value"]]
     for key in dir(result):
         if key.startswith("_") or key.isupper():
             continue
