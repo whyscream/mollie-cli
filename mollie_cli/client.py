@@ -64,16 +64,17 @@ class BaseAPIClient:
             resource_name = self.find_resource_name(hint)
         else:
             map_ = self.get_supported_resources_map()
-            resource = None
-            for resource_name, prefix in map_.items():
+            resource_name = None
+            for name, prefix in map_.items():
                 if resource_id.startswith(prefix):
+                    resource_name = name
                     break
 
-        resource = getattr(self._client, resource_name)
-        if not resource:
+        if not resource_name:
             raise ClientError(
                 f"Cannot find a resource for id '{resource_id}'",
             )
+        resource = getattr(self._client, resource_name)
 
         params = self.get_params()
         try:
