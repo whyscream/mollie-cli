@@ -2,42 +2,9 @@ import sys
 from contextlib import contextmanager
 
 import click
-from tabulate import tabulate
 
 from .client import APIClient, APIError, ClientError, OAuthAPIClient
-
-RESOURCES_LIST_PROPERTIES = {
-    "_default_": {"ID": "id"},
-    "clients": {
-        "ID": "id",
-        "Organization created at": "organisation_created_at",
-    },
-    "customers": {"ID": "id", "E-mail": "email"},
-    "orders": {
-        "ID": "id",
-        "Amount": "amount",
-        "Status": "status",
-        "Paid at": "paid_at",
-    },
-    "payments": {
-        "ID": "id",
-        "Amount": "amount",
-        "Status": "status",
-        "Paid at": "paid_at",
-    },
-    "profiles": {
-        "ID": "id",
-        "Name": "name",
-        "E-mail": "email",
-        "Status": "status",
-    },
-    "refunds": {
-        "ID": "id",
-        "Amount": "amount",
-        "Status": "status",
-        "Description": "description",
-    },
-}
+from .formatting import format_get_result, format_list_result
 
 
 def validate_api_key(ctx, param, value):
@@ -57,39 +24,6 @@ def validate_token(ctx, param, value):
     raise click.BadParameter(
         "The access token should start with: access_",
     )
-
-
-def format_result_list(result, resource_name):
-    properties = RESOURCES_LIST_PROPERTIES.get(resource_name)
-    if not properties:
-        properties = RESOURCES_LIST_PROPERTIES.get("_default_")
-
-    header = properties.keys()
-    table = [header]
-
-    for item in result:
-        row = [getattr(item, p) for p in properties.values()]
-        table.append(row)
-
-    tabulated = tabulate(table, tablefmt="fancy_grid", headers="firstrow")
-    click.echo(f"\nList of {resource_name}:\n")
-    click.echo(tabulated)
-
-
-def format_result_item(result):
-    table = [["Property", "Value"]]
-    for key in dir(result):
-        if key.startswith("_") or key.isupper():
-            continue
-        value = getattr(result, key)
-        if not isinstance(value, (str, int, bool, dict)) and value is not None:
-            continue
-
-        table.append([key, value])
-
-    tabulated = tabulate(table, tablefmt="fancy_grid", headers="firstrow")
-    click.echo(f"\nProperties of {result.resource} with id {result.id}:\n")
-    click.echo(tabulated)
 
 
 @contextmanager
@@ -218,7 +152,7 @@ def get(ctx, resource_id, hint):
     with handle_client_exceptions():
         result, _ = client.get(resource_id, hint)
 
-    format_result_item(result)
+    format_get_result(result)
 
 
 apikey.add_command(get)
@@ -243,7 +177,7 @@ def list_(ctx, limit, resource):
     with handle_client_exceptions():
         result, resource_name = client.list(resource, limit)
 
-    format_result_list(result, resource_name)
+    format_list_result(result, resource_name)
 
 
 apikey.add_command(list_)
