@@ -186,4 +186,5 @@ oauth.add_command(list_)
 
 
 def main():
-    cli(obj={}, auto_envvar_prefix="MOLLIE")
+    """Run the commandline program"""
+    cli(obj={})
