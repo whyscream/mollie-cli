@@ -34,7 +34,10 @@ class BaseAPIClient:
             # Try to match a substring
             resources = [name for name in map_.keys() if hint in name]
             if not resources:
-                raise ClientError(f"No resource found for name '{hint}'")
+                raise ClientError(
+                    f"No resource found for name '{hint}', "
+                    f"use one of: {', '.join(map_.keys())}"
+                )
             elif len(resources) > 1:
                 raise ClientError(
                     f"Hint matches multiple resources: {', '.join(resources)}",
