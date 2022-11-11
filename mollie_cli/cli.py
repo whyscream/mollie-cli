@@ -4,7 +4,7 @@ from contextlib import contextmanager
 import click
 
 from .client import APIClient, APIError, ClientError, OAuthAPIClient
-from .formatting import format_get_result, format_list_result
+from .formatting import ALL_FORMATS, format_get_result, format_list_result
 
 
 def validate_api_key(ctx, param, value):
@@ -47,9 +47,22 @@ def handle_client_exceptions():
 
 @click.group()
 @click.version_option()
+@click.option(
+    "--format",
+    "-f",
+    "formatting",  # 'format' is a Python function
+    type=click.Choice(
+        ALL_FORMATS,
+        case_sensitive=False,
+    ),
+    default=ALL_FORMATS[0],
+    help="Change output formatting",
+    envvar="MOLLIE_FORMAT",
+)
 @click.pass_context
-def cli(ctx):
+def cli(ctx, formatting):
     ctx.ensure_object(dict)
+    ctx.obj["formatting"] = formatting
 
 
 @cli.group()
@@ -148,11 +161,11 @@ def oauth(ctx, client_id, client_secret, redirect_uri, testmode):
 def get(ctx, resource_id, hint):
     """Retrieve a single item by resource ID"""
     client = ctx.obj["client"]
+    formatting = ctx.obj["formatting"]
 
     with handle_client_exceptions():
         result, _ = client.get(resource_id, hint)
-
-    format_get_result(result)
+        format_get_result(result, formatting)
 
 
 apikey.add_command(get)
@@ -173,11 +186,11 @@ oauth.add_command(get)
 def list_(ctx, limit, resource):
     """List items by resource name"""
     client = ctx.obj["client"]
+    formatting = ctx.obj["formatting"]
 
     with handle_client_exceptions():
         result, resource_name = client.list(resource, limit)
-
-    format_list_result(result, resource_name)
+        format_list_result(result, resource_name, formatting)
 
 
 apikey.add_command(list_)

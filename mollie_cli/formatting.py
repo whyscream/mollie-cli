@@ -1,5 +1,21 @@
+import json
+
 import click
 from tabulate import tabulate
+
+from .client import ClientError
+
+FORMAT_TABLE = "table"
+FORMAT_JSON = "json"
+FORMAT_CSV = "csv"
+
+ALL_FORMATS = (
+    FORMAT_TABLE,
+    FORMAT_JSON,
+    FORMAT_CSV,
+)
+
+TABULATE_FORMAT = "fancy_grid"
 
 RESOURCES_LIST_PROPERTIES = {
     "_default_": {"ID": "id"},
@@ -35,36 +51,51 @@ RESOURCES_LIST_PROPERTIES = {
 }
 
 
-def format_list_result(result, resource_name):
+def format_list_result(result, resource_name, formatting):
     """Format a list result into presentable data"""
-    properties = RESOURCES_LIST_PROPERTIES.get(resource_name)
-    if not properties:
-        properties = RESOURCES_LIST_PROPERTIES.get("_default_")
+    if formatting == FORMAT_JSON:
+        click.echo(json.dumps(result, indent=4))
 
-    header = properties.keys()
-    table = [header]
+    elif formatting == FORMAT_TABLE:
+        # Get the properties that we want to display in list formatting
+        properties = RESOURCES_LIST_PROPERTIES.get(resource_name)
+        if not properties:
+            properties = RESOURCES_LIST_PROPERTIES.get("_default_")
 
-    for item in result:
-        row = [getattr(item, p) for p in properties.values()]
-        table.append(row)
+        header = properties.keys()
+        table = [header]
 
-    tabulated = tabulate(table, tablefmt="fancy_grid", headers="firstrow")
-    click.echo(f"\nList of {resource_name}:\n")
-    click.echo(tabulated)
+        for item in result:
+            row = [getattr(item, p) for p in properties.values()]
+            table.append(row)
+
+        tabulated = tabulate(table, tablefmt=TABULATE_FORMAT, headers="firstrow")
+        click.echo(f"\nList of {resource_name}:\n")
+        click.echo(tabulated)
+
+    else:
+        raise ClientError(f"Unsupported formatting: {formatting}")
 
 
-def format_get_result(result):
+def format_get_result(result, formatting):
     """Format a single item from a get call into presentable data"""
-    table = [["Property", "Value"]]
-    for key in dir(result):
-        if key.startswith("_") or key.isupper():
-            continue
-        value = getattr(result, key)
-        if not isinstance(value, (str, int, bool, dict)) and value is not None:
-            continue
+    if formatting == FORMAT_JSON:
+        click.echo(json.dumps(result, indent=4))
 
-        table.append([key, value])
+    elif formatting == FORMAT_TABLE:
+        table = [["Property", "Value"]]
+        for key in dir(result):
+            if key.startswith("_") or key.isupper():
+                continue
+            value = getattr(result, key)
+            if not isinstance(value, (str, int, bool, dict)) and value is not None:
+                continue
 
-    tabulated = tabulate(table, tablefmt="fancy_grid", headers="firstrow")
-    click.echo(f"\nProperties of {result.resource} with id {result.id}:\n")
-    click.echo(tabulated)
+            table.append([key, value])
+
+        tabulated = tabulate(table, tablefmt=TABULATE_FORMAT, headers="firstrow")
+        click.echo(f"\nProperties of {result.resource} with id {result.id}:\n")
+        click.echo(tabulated)
+
+    else:
+        raise ClientError(f"Unsupported formatting: {formatting}")
