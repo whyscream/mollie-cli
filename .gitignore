@@ -1,3 +1,7 @@
+# Local development
 .envrc
+dist/
 env/
+
+# Python artifacts
 __pycache__
