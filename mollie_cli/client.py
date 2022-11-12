@@ -131,26 +131,16 @@ class OAuthAPIClient(BaseAPIClient):
 
     SCOPE = [
         "refunds.read",
-        "refunds.write",
         "onboarding.read",
         "customers.read",
-        "customers.write",
         "shipments.read",
         "mandates.read",
         "invoices.read",
-        "shipments.write",
-        "profiles.write",
-        "orders.write",
         "profiles.read",
-        "payments.write",
-        "organizations.write",
-        "subscriptions.write",
         "subscriptions.read",
-        "mandates.write",
         "orders.read",
         "organizations.read",
         "settlements.read",
-        "onboarding.write",
         "payments.read",
     ]
 
