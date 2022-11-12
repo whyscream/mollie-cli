@@ -31,7 +31,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.scripts]
-mollie-cli = "mollie_cli.cli:main"
+mollie-cli = "mollie_cli.commandline:main"
 
 [project.urls]
 Documentation = "https://github.com/whyscream/mollie-cli#readme"

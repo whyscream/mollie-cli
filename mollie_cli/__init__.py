@@ -1,3 +1,3 @@
-# SPDX-FileCopyrightText: 2022-present U.N. Owen <void@some.where>
+# SPDX-FileCopyrightText: 2022-present Tom Hendrikx <tom@whyscream.net>
 #
 # SPDX-License-Identifier: MIT
