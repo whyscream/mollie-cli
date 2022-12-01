@@ -12,6 +12,8 @@ from mollie.api.client import Client as MollieClient
 from mollie.api.error import Error as NativeMollieError
 from oauthlib.oauth2.rfc6749.errors import OAuth2Error
 
+from mollie_cli.__about__ import __version__
+
 
 class APIError(Exception):
     """An error has ocurred while talking to the API."""
@@ -113,6 +115,7 @@ class APIClient(BaseAPIClient):
     def __init__(self, key, testmode=False):
         self._testmode = testmode
         self._client = MollieClient()
+        self._client.set_user_agent_component("mollie-cli", __version__)
 
         if key.startswith(("test_", "live_")):
             self._client.set_api_key(key)
@@ -150,6 +153,7 @@ class OAuthAPIClient(BaseAPIClient):
         self._client_secret = client_secret
         self._redirect_uri = redirect_uri
         self._client = MollieClient()
+        self._client.set_user_agent_component("mollie-cli", __version__)
 
     def oauth_authorize(self):
         token = self.get_token()
