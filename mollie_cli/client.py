@@ -103,10 +103,9 @@ class BaseAPIClient:
             attr = getattr(self._client, attrname)
             try:
                 prefix = getattr(attr, "RESOURCE_ID_PREFIX")
-                if prefix:
-                    resources[attrname] = prefix
+                resources[attrname] = prefix
             except AttributeError:
-                pass
+                continue
 
         return resources
 
