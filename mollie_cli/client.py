@@ -28,6 +28,23 @@ class ClientError(Exception):
 
 
 class BaseAPIClient:
+    # The Mollie API is quite picky about sending the correct query. Here we
+    # store some specific settings per resource type to straighten things out.
+    RESOURCE_SETTINGS = {
+        "methods": {
+            "use_limit": False,
+        },
+    }
+
+    @classmethod
+    def get_resource_setting(cls, resource_name, setting_name):
+        """
+        Retrieve a specific setting for a resource.
+        """
+        resource_settings = cls.RESOURCE_SETTINGS[resource_name]
+        setting_value = resource_settings[setting_name]
+        return setting_value
+
     def find_resource_name(self, hint):
         """Try to find a known resource by a partial name"""
         map_ = self.get_supported_resources_map()
@@ -55,7 +72,7 @@ class BaseAPIClient:
         resource_name = self.find_resource_name(resource_name)
 
         resource = getattr(self._client, resource_name)
-        params = self.get_params(limit=limit)
+        params = self.get_params(resource_name, limit=limit)
         try:
             result = resource.list(**params)
         except NativeMollieError as exc:
@@ -84,7 +101,7 @@ class BaseAPIClient:
             )
         resource = getattr(self._client, resource_name)
 
-        params = self.get_params()
+        params = self.get_params(resource_name)
         try:
             result = resource.get(resource_id, **params)
         except NativeMollieError as exc:
@@ -109,9 +126,24 @@ class BaseAPIClient:
 
         return resources
 
-    def get_params(self, **params):
+    def get_params(self, resource_name, **params):
         if self._testmode:
             params.update({"testmode": "true"})
+
+        # filter limit param if needed
+        if "limit" in params:
+            try:
+                use_limit = self.get_resource_setting(
+                    resource_name,
+                    "use_limit",
+                )
+            except KeyError:
+                # no such param
+                pass
+            else:
+                if not use_limit:
+                    params.pop("limit")
+
         return params
 
 
