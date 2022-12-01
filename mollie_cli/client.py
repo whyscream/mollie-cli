@@ -109,6 +109,11 @@ class BaseAPIClient:
 
         return resources
 
+    def get_params(self, **params):
+        if self._testmode:
+            params.update({"testmode": "true"})
+        return params
+
 
 class APIClient(BaseAPIClient):
     def __init__(self, key, testmode=False):
@@ -121,11 +126,6 @@ class APIClient(BaseAPIClient):
 
         elif key.startswith("access_"):
             self._client.set_access_token(key)
-
-    def get_params(self, **params):
-        if self._testmode:
-            params.update({"testmode": "true"})
-        return params
 
 
 class OAuthAPIClient(BaseAPIClient):
@@ -212,11 +212,6 @@ class OAuthAPIClient(BaseAPIClient):
     @classmethod
     def set_token(cls, token):
         cls.TOKEN_PATH.write_text(json.dumps(token))
-
-    def get_params(self, **params):
-        if self._testmode:
-            params.update({"testmode": "true"})
-        return params
 
 
 class OAuthHTTPServer(HTTPServer):
